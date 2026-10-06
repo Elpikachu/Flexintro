@@ -1,0 +1,20 @@
+# Example: scale the queue worker around a weekly import from a GitLab
+# scheduled pipeline. Shown on screen during the demo; adapt to the
+# customer's CI (GitHub Actions, Jenkins, cron) the same way.
+#
+# CI/CD variables (masked): UPSUN_CLI_TOKEN, UPSUN_PROJECT
+# Pipeline schedule: e.g. every Monday 06:00 Europe/Paris, with variable
+#   SCHEDULED_JOB=weekly-import
+
+weekly-import:
+  image: ubuntu:24.04
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULED_JOB == "weekly-import"'
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl git jq > /dev/null
+    # Upsun CLI installer: verify the current command in the Upsun docs.
+    - curl -fsSL https://raw.githubusercontent.com/upsun/cli/main/installer.sh | bash
+    - export PATH="$HOME/.upsun/bin:$PATH"
+  script:
+    - ./scripts/scale-for-import.sh
+  timeout: 4h

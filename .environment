@@ -1,0 +1,40 @@
+# Sourced by Upsun at runtime in the app and its workers.
+# Maps service environment variables ($<RELATIONSHIP>_<PROPERTY>) to Laravel names.
+
+export APP_ENV=production
+export APP_DEBUG=false
+export LOG_CHANNEL=stderr
+
+# Database (relationship: database)
+export DB_CONNECTION=mysql
+export DB_HOST="${DATABASE_HOST}"
+export DB_PORT="${DATABASE_PORT}"
+export DB_DATABASE="${DATABASE_PATH}"
+export DB_USERNAME="${DATABASE_USERNAME}"
+export DB_PASSWORD="${DATABASE_PASSWORD}"
+
+# Redis (relationship: redis) -> REDIS_HOST / REDIS_PORT are already set by Upsun.
+export CACHE_STORE=redis
+export SESSION_DRIVER=redis
+export QUEUE_CONNECTION=redis
+
+# Object storage (relationship: object-storage), present once enabled.
+if [ -n "${OBJECT_STORAGE_HOST:-}" ]; then
+  export FILESYSTEM_DISK=s3
+  export AWS_ACCESS_KEY_ID="${OBJECT_STORAGE_ACCESS_KEY}"
+  export AWS_SECRET_ACCESS_KEY="${OBJECT_STORAGE_SECRET_KEY}"
+  export AWS_DEFAULT_REGION="${OBJECT_STORAGE_REGION}"
+  export AWS_ENDPOINT="${OBJECT_STORAGE_SCHEME:-http}://${OBJECT_STORAGE_HOST}:${OBJECT_STORAGE_PORT}"
+  export AWS_USE_PATH_STYLE_ENDPOINT=true
+  # Bucket name comes from the relationship; falls back to the app name.
+  AWS_BUCKET="$(printf '%s' "${OBJECT_STORAGE_BUCKETS:-}" | jq -r 'keys[0]' 2>/dev/null || true)"
+  if [ -z "${AWS_BUCKET}" ] || [ "${AWS_BUCKET}" = "null" ]; then
+    AWS_BUCKET="${PLATFORM_APPLICATION_NAME}"
+  fi
+  export AWS_BUCKET
+fi
+
+# Demo knobs
+# About 1600 ms per chunk puts a 400 chunk import near 11 minutes on one
+# queue worker instance. Re-time it on the real project and adjust.
+export IMPORT_CPU_MS="${IMPORT_CPU_MS:-1600}"

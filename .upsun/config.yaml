@@ -1,0 +1,74 @@
+# Flex demo app: one Laravel app covering both proof moments.
+# Resources (CPU, RAM, disk, object storage, instance counts) are NOT set here:
+# use `upsun resources:set` (see CLAUDE.md, Deployment).
+
+applications:
+  app:
+    type: "php:8.3"
+    container_profile: BALANCED
+
+    dependencies:
+      php:
+        composer/composer: "^2"
+
+    runtime:
+      extensions:
+        - redis
+
+    build:
+      flavor: none
+
+    hooks:
+      build: |
+        set -e
+        composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+      deploy: |
+        set -e
+        php artisan migrate --force --no-interaction
+
+    relationships:
+      database:
+        service: db
+        endpoint: mysql
+      redis:
+        service: cache
+        endpoint: redis
+    # The `object-storage` relationship is added automatically once object
+    # storage is enabled with `upsun resources:set --object-storage app:524288`.
+    # Workers without their own `relationships` block inherit it.
+
+    mounts:
+      "storage/framework/views":
+        source: instance
+        source_path: "views"
+      "storage/framework/cache":
+        source: instance
+        source_path: "cache"
+
+    web:
+      locations:
+        "/":
+          root: "public"
+          passthru: "/index.php"
+          index:
+            - index.php
+          allow: true
+
+    workers:
+      queue:
+        commands:
+          start: php artisan queue:work redis --sleep=1 --tries=3 --max-time=3600
+      scheduler:
+        commands:
+          start: php artisan schedule:work
+
+services:
+  db:
+    type: oracle-mysql:8.4
+  cache:
+    type: redis:7.2
+
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "app:http"
